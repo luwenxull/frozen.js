@@ -7,10 +7,14 @@ type FrozenMap = Map<string, FrozenMapValue>
 export default class Frozen {
   private sourceMap: FrozenMap
   private remoteFrozen: Frozen = null
+  private _isArray: boolean = false
   constructor(source: object) {
     this.sourceMap = Object.keys(source).reduce((map: Map<string, FrozenMapValue>, key: string) => {
       return map.set(key, Frozen.deepTransform(source[key]))
     }, new Map())
+    if (source instanceof Array) {
+      this._isArray = true
+    }
   }
 
   /**
@@ -136,7 +140,7 @@ export default class Frozen {
    * @memberof Frozen
    */
   private _toObj(excludeKeys: Set<string> = new Set()): object {
-    const obj = {}
+    const obj = this._isArray ? [] : {}
     if (this.remoteFrozen) {
       Object.assign(obj, this.remoteFrozen._toObj(new Set(this.sourceMap.keys())))
     }
