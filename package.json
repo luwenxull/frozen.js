@@ -8,7 +8,7 @@
   "devDependencies": {
     "@types/jest": "^23.3.3",
     "jest": "^23.6.0",
-    "parcel-bundler": "^1.10.2",
+    "prettier": "^1.15.2",
     "ts-jest": "^23.10.4",
     "ts-node": "^7.0.1",
     "typescript": "^3.1.1"
@@ -16,6 +16,7 @@
   "scripts": {
     "test": "jest --verbose",
     "build": "tsc",
-    "start": "parcel index.html"
+    "prettier": "prettier --write ./src/**/*.ts ./lib/**/*.js ./lib/**/*.d.ts",
+    "pub": "npm publish --access=public"
   }
 }

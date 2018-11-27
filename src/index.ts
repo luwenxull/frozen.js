@@ -1,3 +1,1 @@
-export function frozen(target: object) {
-  // return
-}
+export { default } from './Frozen';

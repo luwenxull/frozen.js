@@ -1,166 +1,63 @@
-import { safeGet, isObj } from "./tool";
+import { safeGet, isObj, iterateObj } from './tool';
+import { VALUE_PRIMITIVE, VALUE_OBJECT_ATRITRARY } from './const';
 
-type Primitive = string | number | boolean
-type FrozenMapValue = Frozen | Primitive
-type FrozenMap = Map<string, FrozenMapValue>
+// frozen对象的数据源, 可以是Map，可以是primitive，取决于是否是叶节点
+type DataSource = Map<string, Frozen> | VALUE_PRIMITIVE;
+type PathTracer = Map<string, any>
 
 export default class Frozen {
-  private sourceMap: FrozenMap
-  private remoteFrozen: Frozen = null
-  private _isArray: boolean = false
-  constructor(source: object) {
-    this.sourceMap = Object.keys(source).reduce((map: Map<string, FrozenMapValue>, key: string) => {
-      return map.set(key, Frozen.deepTransform(source[key]))
-    }, new Map())
+  private dataSource: DataSource; // 由构造函数初始化
+  private pathTracer: PathTracer = new Map() // 追踪通过set方法添加的路径
+  private derivedFrom: Frozen | null = null;
+  private isArray: boolean = false;
+  private isLeaf: boolean = false; // 是否是叶节点。叶节点不再有嵌套的Frozen对象
+  private isFromSpawn: boolean = false;
+  constructor(source: VALUE_OBJECT_ATRITRARY | VALUE_PRIMITIVE) {
+    if (isObj(source)) {
+      this.dataSource = new Map();
+      iterateObj(source, (value, key) => {
+        (this.dataSource as Map<string, Frozen>).set(
+          key as string,
+          new Frozen(value)
+        );
+      });
+    } else {
+      // 叶节点
+      this.isLeaf = true;
+      this.dataSource = source;
+    }
     if (source instanceof Array) {
-      this._isArray = true
+      this.isArray = true;
     }
   }
 
-  /**
-   * 按路径读取
-   *
-   * @param {(string | string[])} path
-   * @param {*} [defalutValue]
-   * @returns {*}
-   * @memberof FrozenMap
-   */
-  public get(path: string | string[], defalutValue?: any): any {
-    let current = this, result = null
-    const paths = [].concat(path), l = paths.length
-    try {
-      for (let i = 0; i < l; i++) {
-        const field = paths[i]
-        if (current instanceof Frozen) {
-          result = current._get(field, paths)
-        } else {
-          result = safeGet(current, field)
-        }
-        current = result
+  public get(path: string | string[]): any {
+    const fullPath = ([] as string[]).concat(path)
+    fullPath.forEach((path, i) => {
+      if (this.pathTracer.has(path)) {
+        const tracer = this.pathTracer.get(path)
       }
-    } catch (err) {
-      if (defalutValue !== undefined) {
-        return defalutValue
-      } else {
-        throw err
-      }
-    }
-    return result
+    })
   }
 
-  /**
-   * 按路径赋值
-   * 不会改变当前对象，而是始终返回一个新的Frozen对象
-   *
-   * @param {(string | string[])} path
-   * @param {*} value
-   * @returns {Frozen}
-   * @memberof Frozen
-   */
   public set(path: string | string[], value: any): Frozen {
-    const paths = [].concat(path), l = paths.length
-    const newFrozen = new Frozen({})
-    let remote: Frozen = this
-    let current = newFrozen.link(this)
-    for (let i = 0; i < l; i++) {
-      const field = paths[i]
-      if (i === l - 1) {
-        current._set(field, value)
-      } else {
-        remote = remote.get(field)
-        const nf = new Frozen({}).link(remote)
-        current._set(field, nf)
-        current = nf
+    const frozen = Frozen.spawn(this) // 生成全新的Frozen对象
+    const fullPath = ([] as string[]).concat(path) // 完整路径数组
+    fullPath.forEach((path, i) => {
+      if (!this.pathTracer.has(path) /* 初始化当前路径 */) {
+        this.pathTracer.set(path, new Map())
       }
-    }
-    return newFrozen
-  }
-
-  /**
-   * 转成普通obj对象
-   *
-   * @returns {object}
-   * @memberof Frozen
-   */
-  public toObj(): object {
-    return this._toObj()
-  }
-
-  /**
-   * 连接两个frozen对象
-   *
-   * @private
-   * @param {Frozen} remote
-   * @returns {this}
-   * @memberof Frozen
-   */
-  private link(remote: Frozen): this {
-    this.remoteFrozen = remote
-    return this
-  }
-
-  /**
-   * 内部get方法
-   *
-   * @private
-   * @param {string} key
-   * @returns {*}
-   * @memberof FrozenMap
-   */
-  private _get(key: string, fullPath: string[]): any {
-    if (this.sourceMap.has(key)) {
-      return this.sourceMap.get(key)
-    } else if (this.remoteFrozen) {
-      return this.remoteFrozen.get(key)
-    } else {
-      throw new Error(`路径：${fullPath.join('.')}无数据`)
-    }
-  }
-
-  /**
-   * 直接修改内部的map
-   *
-   * @private
-   * @param {string} key
-   * @param {*} value
-   * @returns {this}
-   * @memberof Frozen
-   */
-  private _set(key: string, value): this {
-    this.sourceMap.set(key, Frozen.deepTransform(value))
-    return this
-  }
-  
-  /**
-   * 内部的toobj实现
-   *
-   * @private
-   * @param {Set<string>} [excludeKeys=new Set()]
-   * @returns
-   * @memberof Frozen
-   */
-  private _toObj(excludeKeys: Set<string> = new Set()): object {
-    const obj = this._isArray ? [] : {}
-    if (this.remoteFrozen) {
-      Object.assign(obj, this.remoteFrozen._toObj(new Set(this.sourceMap.keys())))
-    }
-    for (let [key, value] of this.sourceMap.entries()) {
-      if (!excludeKeys.has(key)) {
-        if (value instanceof Frozen) {
-          obj[key] = value._toObj()
-        } else {
-          obj[key] = value
-        }
+      if (i === fullPath.length - 1) {
+        this.pathTracer.set(path, new Frozen(value))
       }
-    }
-    return obj
+    })
+    return frozen
   }
 
-  static deepTransform(source: any): FrozenMapValue {
-    if (isObj(source) && !(source instanceof Frozen)) {
-      return new Frozen(source)
-    } else {
-      return source
-    }
+  static spawn(derivedFrom: Frozen): Frozen {
+    const frozen = new Frozen(null)
+    frozen.derivedFrom = derivedFrom
+    frozen.isFromSpawn = true
+    return frozen
   }
 }
