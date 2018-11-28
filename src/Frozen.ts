@@ -1,4 +1,4 @@
-import { isObj, iterate, updateByPath } from './tool';
+import { isObj, iterate, set, get } from './tool';
 import { PRIMITIVE, Arbitrary_Object } from './const';
 
 // frozen对象的数据源, 可以是Map，可以是primitive，取决于是否是叶节点
@@ -19,21 +19,26 @@ export type AberrancePath = {
 };
 
 export default class Frozen {
-  private dataSource: DataSource | PRIMITIVE; // 由构造函数初始化
+  private dataSource: DataSource | null = null; //
   private aberrancePath: AberrancePath | null = null; // 变异路径，一个frozen对象最多有一条变异路径
   private derivedFrom: Frozen | null = null; // 衍生父对象
   private isArray: boolean = false;
   private isLeaf: boolean = false; // 是否是叶节点。叶节点不再有嵌套的Frozen对象
-  constructor(source: Arbitrary_Object | PRIMITIVE) {
-    if (isObj(source)) {
-      this.dataSource = new Map();
-      iterate(source, (value, key) => {
-        (this.dataSource as DataSource).set(key, new Frozen(value));
-      });
-    } else {
-      // 叶节点
+  private leafData: any; // 和isleaf配合使用
+  constructor(
+    source: Arbitrary_Object | PRIMITIVE,
+    treatAsLeaf: boolean = false
+  ) {
+    if (treatAsLeaf || !isObj(source)) {
       this.isLeaf = true;
-      this.dataSource = source;
+      this.leafData = source;
+    } else {
+      const map = new Map();
+      iterate(source, (value, key) => {
+        // 不再递归转换Frozen对象
+        map.set(key, value instanceof Frozen ? value : new Frozen(value));
+      });
+      this.dataSource = map;
     }
     if (source instanceof Array) {
       this.isArray = true;
@@ -50,10 +55,10 @@ export default class Frozen {
     if (this.derivedFrom !== null) {
       const obj = this.derivedFrom.toObj();
       const aberrancePath = this.aberrancePath as AberrancePath;
-      return updateByPath(obj, aberrancePath.path, aberrancePath.value.toObj());
+      return set(obj, aberrancePath.path, aberrancePath.value.toObj());
     } else {
       if (this.isLeaf) {
-        return this.dataSource;
+        return this.leafData;
       } else {
         const obj: Arbitrary_Object = this.isArray ? [] : {};
         for (let pair of (this.dataSource as DataSource).entries()) {
@@ -87,7 +92,7 @@ export default class Frozen {
   }
 
   public get(path: PathUnit_Simple | PathUnit_Simple[]): any {
-    const obj = this.toObj();
+    return get(this.toObj(), path);
   }
 
   /**

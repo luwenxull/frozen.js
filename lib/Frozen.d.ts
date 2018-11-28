@@ -19,7 +19,8 @@ export default class Frozen {
   private derivedFrom;
   private isArray;
   private isLeaf;
-  constructor(source: Arbitrary_Object | PRIMITIVE);
+  private leafData;
+  constructor(source: Arbitrary_Object | PRIMITIVE, treatAsLeaf?: boolean);
   /**
    * 转成object类型
    *
