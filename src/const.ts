@@ -1,6 +1,7 @@
 // 原始值
-export type VALUE_PRIMITIVE = string | number | boolean | undefined | null;
+export type PRIMITIVE = string | number | boolean | undefined | null;
 
-export type VALUE_OBJECT_ATRITRARY = {
+// 任意对象或数组
+export interface Arbitrary_Object {
   [prop: string]: any;
-};
+}

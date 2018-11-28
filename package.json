@@ -1,7 +1,7 @@
 {
-  "name": "frozen.js",
+  "name": "@luwenxull/frozen.js",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "lib/index.js",
   "repository": "https://github.com/luwenxull/frozen.js",
   "author": "luwenxull <992273307@qq.com>",
   "license": "MIT",
@@ -10,7 +10,6 @@
     "jest": "^23.6.0",
     "prettier": "^1.15.2",
     "ts-jest": "^23.10.4",
-    "ts-node": "^7.0.1",
     "typescript": "^3.1.1"
   },
   "scripts": {

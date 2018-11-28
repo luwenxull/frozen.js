@@ -1,25 +1,25 @@
-import { safeGet, isObj, iterateObj } from './tool';
-import { VALUE_PRIMITIVE, VALUE_OBJECT_ATRITRARY } from './const';
+import { safeGet, isObj, iterate, updateByPath } from './tool';
+import { PRIMITIVE, Arbitrary_Object } from './const';
 
 // frozen对象的数据源, 可以是Map，可以是primitive，取决于是否是叶节点
-type DataSource = Map<string, Frozen> | VALUE_PRIMITIVE;
-type PathTracer = Map<string, any>
+export type DataSource = Map<string | number, Frozen>;
+export type AberrancePath = {
+  path: Array<string | number>;
+  value: Frozen;
+};
+export type Path = number | string | Array<number | string>;
 
 export default class Frozen {
-  private dataSource: DataSource; // 由构造函数初始化
-  private pathTracer: PathTracer = new Map() // 追踪通过set方法添加的路径
-  private derivedFrom: Frozen | null = null;
+  private dataSource: DataSource | PRIMITIVE; // 由构造函数初始化
+  private aberrancePath: AberrancePath | null = null; // 变异路径，一个frozen对象最多有一条变异路径
+  private derivedFrom: Frozen | null = null; // 衍生父对象
   private isArray: boolean = false;
   private isLeaf: boolean = false; // 是否是叶节点。叶节点不再有嵌套的Frozen对象
-  private isFromSpawn: boolean = false;
-  constructor(source: VALUE_OBJECT_ATRITRARY | VALUE_PRIMITIVE) {
+  constructor(source: Arbitrary_Object | PRIMITIVE) {
     if (isObj(source)) {
       this.dataSource = new Map();
-      iterateObj(source, (value, key) => {
-        (this.dataSource as Map<string, Frozen>).set(
-          key as string,
-          new Frozen(value)
-        );
+      iterate(source, (value, key) => {
+        (this.dataSource as DataSource).set(key, new Frozen(value));
       });
     } else {
       // 叶节点
@@ -31,33 +31,40 @@ export default class Frozen {
     }
   }
 
-  public get(path: string | string[]): any {
-    const fullPath = ([] as string[]).concat(path)
-    fullPath.forEach((path, i) => {
-      if (this.pathTracer.has(path)) {
-        const tracer = this.pathTracer.get(path)
+  public toObj(): any {
+    if (this.derivedFrom !== null) {
+      const obj = this.derivedFrom.toObj();
+      const aberrancePath = this.aberrancePath as AberrancePath;
+      return updateByPath(obj, aberrancePath.path, aberrancePath.value.toObj());
+    } else {
+      if (this.isLeaf) {
+        return this.dataSource;
+      } else {
+        const obj: Arbitrary_Object = this.isArray ? [] : {};
+        for (let pair of (this.dataSource as DataSource).entries()) {
+          const [key, value] = pair;
+          obj[key] = value.toObj();
+        }
+        return obj;
       }
-    })
+    }
   }
 
-  public set(path: string | string[], value: any): Frozen {
-    const frozen = Frozen.spawn(this) // 生成全新的Frozen对象
-    const fullPath = ([] as string[]).concat(path) // 完整路径数组
-    fullPath.forEach((path, i) => {
-      if (!this.pathTracer.has(path) /* 初始化当前路径 */) {
-        this.pathTracer.set(path, new Map())
-      }
-      if (i === fullPath.length - 1) {
-        this.pathTracer.set(path, new Frozen(value))
-      }
-    })
-    return frozen
+  public set(path: Path, value: any): Frozen {
+    // if (this.isLeaf) {
+    //   throw new Error(`无法在当前Frozen对象上读取路径：${path}`);
+    // }
+    const frozen = Frozen.spawn(this); // 生成全新的Frozen对象
+    frozen.aberrancePath = {
+      path: ([] as Array<string | number>).concat(path),
+      value: new Frozen(value)
+    };
+    return frozen;
   }
 
   static spawn(derivedFrom: Frozen): Frozen {
-    const frozen = new Frozen(null)
-    frozen.derivedFrom = derivedFrom
-    frozen.isFromSpawn = true
-    return frozen
+    const frozen = new Frozen(null);
+    frozen.derivedFrom = derivedFrom;
+    return frozen;
   }
 }
