@@ -1,5 +1,5 @@
 import { Arbitrary_Object, PRIMITIVE } from './const';
-import { Path } from './Frozen';
+import { PathUnit_Simple, PathUnit_Full } from './Frozen';
 /**
  * 判断对象是否是object
  * 排除null
@@ -35,15 +35,28 @@ export declare function iterate<T extends Arbitrary_Object, K extends keyof T>(
  */
 export declare function safeGet(source: any, key: string): any;
 /**
+ * 统一包装成object类型的pathunit
+ *
+ * @export
+ * @param {(PathUnit_Simple | PathUnit_Simple[])} path
+ * @returns {PathUnit_Full[]}
+ */
+export declare function toPathUnitFull(
+  path: PathUnit_Simple | PathUnit_Simple[]
+): PathUnit_Full[];
+/**
  * 根据path，更新路径上的某个值
  *
  * @export
- * @param {Arbitrary_Object} source
- * @param {Path} path
+ * @template T
+ * @param {T} source
+ * @param {PathUnit_Simple[]} path
  * @param {*} value
+ * @returns {T}
  */
 export declare function updateByPath<T extends Arbitrary_Object>(
   source: T,
-  path: Path,
+  path: PathUnit_Simple[] | PathUnit_Simple,
   value: any
 ): T;
+export declare function readByPath(): void;

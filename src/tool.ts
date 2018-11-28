@@ -1,5 +1,5 @@
 import { Arbitrary_Object, PRIMITIVE } from './const';
-import { Path } from './Frozen';
+import { PathUnit_Simple, PathUnit_Full } from './Frozen';
 /**
  * 判断对象是否是object
  * 排除null
@@ -56,35 +56,62 @@ export function safeGet(source: any, key: string): any {
 }
 
 /**
+ * 统一包装成object类型的pathunit
+ *
+ * @export
+ * @param {(PathUnit_Simple | PathUnit_Simple[])} path
+ * @returns {PathUnit_Full[]}
+ */
+export function toPathUnitFull(
+  path: PathUnit_Simple | PathUnit_Simple[]
+): PathUnit_Full[] {
+  const pathArr = ([] as PathUnit_Simple[]).concat(path);
+  return pathArr.map(path => {
+    if (isObj(path)) {
+      return path;
+    } else {
+      return {
+        name: path
+      };
+    }
+  });
+}
+
+/**
  * 根据path，更新路径上的某个值
  *
  * @export
- * @param {Arbitrary_Object} source
- * @param {Path} path
+ * @template T
+ * @param {T} source
+ * @param {PathUnit_Simple[]} path
  * @param {*} value
+ * @returns {T}
  */
 export function updateByPath<T extends Arbitrary_Object>(
   source: T,
-  path: Path,
+  path: PathUnit_Simple[] | PathUnit_Simple,
   value: any
 ): T {
-  const fullPath = ([] as Array<string | number>).concat(path);
+  const fullPathes = toPathUnitFull(path);
   let updating: Arbitrary_Object = source;
-  fullPath.forEach((path, i) => {
-    if (i === fullPath.length - 1 /* 遍历到达最后一层 */) {
-      updating[path] = value;
+  fullPathes.forEach((path, i) => {
+    let { name, dft } = path;
+    if (i === fullPathes.length - 1 /* 遍历到达最后一层 */) {
+      updating[name] = value;
     } else {
-      if (Object.prototype.hasOwnProperty.call(updating, path)) {
-        const deeper = updating[path];
-        if (isObj(deeper)) {
-          updating = deeper;
+      if (Object.prototype.hasOwnProperty.call(updating, name)) {
+        const nextUpdating = updating[name];
+        if (isObj(nextUpdating)) {
+          updating = nextUpdating;
         } else {
-          throw new Error(`无法更新路径：${fullPath}`);
+          throw new Error(`${nextUpdating}非对象类型，无法更新字段：${name}`);
         }
       } else {
-        throw new Error(`无法更新路径：${fullPath}`);
+        throw new Error(`${JSON.stringify(updating)}缺失字段：${name}`);
       }
     }
   });
   return source;
 }
+
+export function readByPath() {}
