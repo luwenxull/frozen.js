@@ -1,13 +1,20 @@
-import { isNull } from '../tool/is';
+import { isNull, isFn } from '../tool/is';
+import { iterate } from '../tool/obj';
 
 export type Key = string | number;
 export type SetFn<T> = (current: T) => any;
 
 export interface ICollection {
-  dataSource: Map<Key, any>;
+  readonly dataSource: Map<Key, any>;
+  readonly size: number;
   get<NoValue>(key: Key, noValue?: NoValue): NoValue | any;
-  set<T>(key: Key, value: T): ICollection;
-  set<T, K>(key: Key, value: SetFn<T | K>, noValue: T): ICollection;
+  set(key: Key, value: any): ICollection;
+  set<NoValue>(
+    key: Key,
+    value: SetFn<NoValue | any>,
+    noValue: NoValue
+  ): ICollection;
+  remove(key: Key): ICollection;
 }
 
 export interface ICollectionCtor<T extends Collection> {
@@ -15,12 +22,19 @@ export interface ICollectionCtor<T extends Collection> {
 }
 
 export default abstract class Collection implements ICollection {
-  public dataSource: Map<Key, any> = new Map();
-  protected derivedFrom: ICollection | null = null;
+  public readonly dataSource: Map<Key, any> = new Map();
   constructor() {}
 
-  // get<Expect>(key: Key): Expect | undefined;
-  // get<Expect, NoValue>(key: Key, noValue: NoValue): Expect | NoValue;
+  /**
+   * size getter
+   *
+   * @readonly
+   * @type {number}
+   * @memberof Collection
+   */
+  public get size(): number {
+    return this.dataSource.size;
+  }
 
   /**
    * get method
@@ -34,8 +48,6 @@ export default abstract class Collection implements ICollection {
   public get<NoValue>(key: Key, noValue?: NoValue): NoValue | any {
     if (this.dataSource.has(key)) {
       return this.dataSource.get(key);
-    } else if (!isNull(this.derivedFrom)) {
-      return this.derivedFrom.get(key, noValue);
     } else if (typeof noValue !== 'undefined') {
       return noValue;
     } else {
@@ -43,26 +55,55 @@ export default abstract class Collection implements ICollection {
     }
   }
 
-  public abstract set<T>(key: Key, value: T): ICollection;
-  public abstract set<T, K>(
+  public set(key: Key, value: any): ICollection;
+  public set<NoValue>(
     key: Key,
-    value: SetFn<T | K>,
-    noValue: T
+    value: SetFn<NoValue | any>,
+    noValue: NoValue
   ): ICollection;
+  public set<NoValue>(
+    key: Key,
+    value: any | SetFn<NoValue | any>,
+    noValue?: NoValue
+  ): ICollection {
+    const another = this.spawn();
+    if (isFn(value)) {
+      another.dataSource.set(key, value(this.get(key, noValue)));
+    } else {
+      another.dataSource.set(key, value);
+    }
+    return another;
+  }
+
+  /**
+   * remove 方法
+   *
+   * @param {Key} key
+   * @returns {ICollection}
+   * @memberof Collection
+   */
+  public remove(key: Key): ICollection {
+    const another = this.spawn();
+    another.dataSource.delete(key);
+    return another;
+  }
 
   /**
    * 衍生
    *
-   * @static
+   * @protected
    * @template T
-   * @param {T} from
-   * @param {ICollectionCtor<T>} ctor
    * @returns {T}
    * @memberof Collection
    */
-  static spawn<T extends Collection>(from: T, ctor: ICollectionCtor<T>): T {
-    const another = new ctor();
-    another.derivedFrom = from;
+  protected spawn(): ICollection {
+    const another: ICollection = new (Object.getPrototypeOf(
+      this
+    )).constructor();
+    iterate(this.dataSource, (v, k) => {
+      // 一层copy
+      another.dataSource.set(k, v);
+    });
     return another;
   }
 }

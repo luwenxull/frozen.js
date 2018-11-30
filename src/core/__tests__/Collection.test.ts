@@ -1,4 +1,4 @@
-import from from '../from'
+import { from } from '../frozen'
 import List from '../List';
 
 function baseEatsTest(eats: List) {
@@ -26,7 +26,16 @@ test('set', () => {
   expect(nc.get('eats')).toBeInstanceOf(List)
   const eats = nc.get('eats')
   baseEatsTest(eats)
-  const nc2 = nc.set('eats', (v: List) => v.set(2, 'rice'))
+  const nc2 = c.set('eats', (v: List) => v.set(2, 'rice'))
   expect(nc.get('eats').get(2)).toBeUndefined()
   expect(nc2.get('eats').get(2)).toBe('rice')
+  const nc3 = c.set('loc', p => `province ${p}`, 'js')
+  expect(nc3.get('loc')).toBe('province js')
+})
+
+test('remove', () => {
+  const c = from({name: 'wenxu'})
+  const nc = c.remove('name')
+  expect(nc.get('name')).toBeUndefined()
+  expect(c.get('name')).toBe('wenxu')
 })

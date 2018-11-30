@@ -14,7 +14,7 @@
   },
   "scripts": {
     "test": "jest --verbose",
-    "build": "tsc",
+    "build": "tsc | npm run prettier",
     "prettier": "prettier --write ./src/**/*.ts ./lib/**/*.js ./lib/**/*.d.ts",
     "pub": "npm publish --access=public"
   }

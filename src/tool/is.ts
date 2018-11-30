@@ -24,3 +24,7 @@ export function isArray(v: any): v is Array<any> {
 export function isUndef(v: any): v is undefined {
   return typeof v === 'undefined';
 }
+
+export function isMap(v: any): v is Map<any, any> {
+  return v instanceof Map;
+}
